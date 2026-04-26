@@ -1,17 +1,14 @@
 import express from "express"
 import mongoose from "mongoose"
 import postModel from "./models/postModel.js"
-import dotenv from "dotenv"
 import signupModel from "./models/userModel.js"
 import bcrypt from "bcrypt"
-
-dotenv.config()
 
 const app=express()
 
 const port=5000
 
-const uri=process.env.MONGODB_URI
+const uri="mongodb://muhammadanuskhan23_db_user:Manus827@ac-12s3s67-shard-00-00.65i7iuz.mongodb.net:27017,ac-12s3s67-shard-00-01.65i7iuz.mongodb.net:27017,ac-12s3s67-shard-00-02.65i7iuz.mongodb.net:27017/?ssl=true&replicaSet=atlas-12xccu-shard-0&authSource=admin&appName=BackendApp"
 
 app.use(express.json());
 
