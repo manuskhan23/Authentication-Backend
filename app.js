@@ -29,6 +29,10 @@ mongoose.connection.on("error", (err) => {
 
 // create post-api
 
+app.get("/",(req , res)=>{
+  res.json("hello")
+})
+
 app.post("/api/createpost", async (req, res) => {
   try {
     const body = req.body;
