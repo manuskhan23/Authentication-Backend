@@ -91,17 +91,17 @@ app.post("/api/signup", async (req, res) => {
     const { firstName, lastName, email, password } = req.body;
 
     if (!firstName || !lastName || !email || !password) {
-      res.status(404).json({
+      res.status(400).json({
         message: "Required fields are missing...",
       });
       return;
     }
 
-    const emailExist = await userModel.findOne({ email });
+    const emailExist = await signupModel.findOne({ email });
 
     if (emailExist !== null) {
-      res.status(404).json({
-        message: "Invalid email address..",
+      res.status(409).json({
+        message: "Email already exists..",
       });
       return;
     }
@@ -115,7 +115,7 @@ app.post("/api/signup", async (req, res) => {
       password: encryptPassword,
     };
 
-    const saveData = await userModel.create(userObj);
+    const saveData = await signupModel.create(userObj);
 
     res.status(201).json({
       message: "user created successfully...",
@@ -124,7 +124,7 @@ app.post("/api/signup", async (req, res) => {
     });
   } catch (error) {
     res.status(503).json({
-      message: error,
+      message: error.message,
     });
   }
 });
