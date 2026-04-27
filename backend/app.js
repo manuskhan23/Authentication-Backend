@@ -165,7 +165,6 @@ app.post("/api/v1/login", async (req, res) => {
         email: user.email
       },
       process.env.JWT_SECRET_KEY,
-      { expiresIn: "7d" }
     );
 
     res.status(200).json({

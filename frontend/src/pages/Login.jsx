@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import Input from "../components/Input";
 import Button from "../components/Button";
 import FormCard from "../components/FormCard";
+import axios from "axios";
+import Base_URL from "../Utils";
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -10,14 +12,47 @@ const Login = () => {
     password: "",
   });
 
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Login Data:", formData);
-    alert("Login form submitted! Check console for data.");
+
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    const loginUser = {
+      email: formData.email,
+      password: formData.password,
+    };
+
+    try {
+      const res = await axios.post(
+        `${Base_URL}api/v1/login`,
+        loginUser
+      );
+
+      console.log("Response:", res.data);
+      setSuccess("Login successful 🎉");
+
+      // optional: clear form
+      setFormData({
+        email: "",
+        password: "",
+      });
+
+    } catch (err) {
+      console.log(err.response?.data || err.message);
+      setError(err.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
