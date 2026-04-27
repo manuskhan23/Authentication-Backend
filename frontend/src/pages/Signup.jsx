@@ -18,11 +18,23 @@ const Signup = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log("Signup Data:", formData);
-    alert("Signup form submitted! Check console for data.");
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  const signupUser = {
+    firstName: formData.firstName,
+    lastName: formData.lastName,
+    email: formData.email,
+    password: formData.password,
   };
+
+  try {
+    const res = await axios.post(`${Base_URL}/api/v1/signup`, signupUser);
+    console.log(res);
+  } catch (err) {
+    console.log(err);
+  }
+};
 
   const signupUser = {
     firstName: formData.firstName,
@@ -32,7 +44,7 @@ const Signup = () => {
   };
 
       axios
-      .post(`${Base_URL}/api/v1/signup`, signupUser)
+      .post(`${Base_URL}api/v1/signup`, signupUser)
       .then((res) => {
         console.log(res);
       })
