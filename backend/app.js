@@ -97,7 +97,9 @@ app.post("/api/v1/signup", async (req, res) => {
       });
     }
 
+    console.log("Checking email:", email);
     const emailExist = await signupModel.findOne({ email });
+    console.log("Email found:", emailExist);
 
     if (emailExist) {
       return res.status(409).json({
