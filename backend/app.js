@@ -1,16 +1,11 @@
 import express from "express";
-import mongoose from "mongoose";
 import postModel from "./models/postModel.js";
 import signupModel from "./models/userModel.js";
 import bcrypt from "bcrypt";
-import 'dotenv/config';
 import jwt from "jsonwebtoken";
 import cors from "cors";
 
 const app = express();
-const port = 5000;
-
-const uri = process.env.MONGO_URI;
 
 app.use(cors({
   origin: "http://localhost:5173",
@@ -19,17 +14,6 @@ app.use(cors({
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
-// DB connection
-mongoose.connect(uri);
-
-mongoose.connection.on("connected", () => {
-  console.log("mongodb connected successfully...");
-});
-
-mongoose.connection.on("error", (err) => {
-  console.log("Mongo Error:", err);
-});
 
 // ================= ROUTES =================
 
@@ -179,8 +163,4 @@ app.post("/api/v1/login", async (req, res) => {
   }
 });
 
-// ================= SERVER =================
-
-app.listen(port, () => {
-  console.log("server is running on port", port);
-});
+export default app;
