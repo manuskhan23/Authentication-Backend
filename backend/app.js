@@ -3,25 +3,11 @@ import mongoose from "mongoose";
 import postModel from "./models/postModel.js";
 import signupModel from "./models/userModel.js";
 import bcrypt from "bcrypt";
-import 'dotenv/config';
 import jwt from "jsonwebtoken";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 
 const app = express();
-const port = process.env.PORT || 5000;
-
-const uri = process.env.MONGO_URI;
-const jwtSecret = process.env.JWT_SECRET;
-const tokenExpiry = process.env.JWT_EXPIRES_IN || "1h";
-
-if (!uri) {
-  throw new Error("MONGO_URI is not set");
-}
-
-if (!jwtSecret) {
-  throw new Error("JWT_SECRET is not set");
-}
 
 const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
   .split(",")
@@ -36,29 +22,21 @@ app.use(cors({
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(express.json({ limit: "100kb" }));
 
-// DB connection
-mongoose.connect(uri);
-
-mongoose.connection.on("connected", () => {
-  console.log("mongodb connected successfully...");
-});
-
-mongoose.connection.on("error", (err) => {
-  console.log("Mongo Error:", err);
-});
-
 // ================= HELPERS =================
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
+const jwtSecret = () => process.env.JWT_SECRET;
+const tokenExpiry = () => process.env.JWT_EXPIRES_IN || "1h";
+
 // Rejects non-string payloads such as { "$ne": null }, which would otherwise
 // reach Mongo as query operators.
 const asString = (value) => (typeof value === "string" ? value.trim() : "");
 
-const authLimiter = rateLimit({
+const authLimiter = () => rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: Number(process.env.AUTH_RATE_LIMIT) || 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { message: "Too many attempts, please try again later" },
@@ -73,7 +51,7 @@ const requireAuth = (req, res, next) => {
   }
 
   try {
-    const payload = jwt.verify(token, jwtSecret);
+    const payload = jwt.verify(token, jwtSecret());
     req.user = { id: payload.id, email: payload.email };
     next();
   } catch {
@@ -181,7 +159,7 @@ app.delete("/api/deletepost/:id", requireAuth, async (req, res) => {
 // ================= AUTH =================
 
 // SIGNUP
-app.post("/api/v1/signup", authLimiter, async (req, res) => {
+app.post("/api/v1/signup", authLimiter(), async (req, res) => {
   try {
     const firstName = asString(req.body?.firstName);
     const lastName = asString(req.body?.lastName);
@@ -241,7 +219,7 @@ app.post("/api/v1/signup", authLimiter, async (req, res) => {
 });
 
 // LOGIN
-app.post("/api/v1/login", authLimiter, async (req, res) => {
+app.post("/api/v1/login", authLimiter(), async (req, res) => {
   try {
     const email = asString(req.body?.email).toLowerCase();
     const password = typeof req.body?.password === "string" ? req.body.password : "";
@@ -252,12 +230,13 @@ app.post("/api/v1/login", authLimiter, async (req, res) => {
       });
     }
 
-    const user = await signupModel.findOne({ email }).select("+password");
-    const isMatch = user
-      ? await bcrypt.compare(password, user.password)
+    // "+password" re-includes the field, which the schema hides by default.
+    const account = await signupModel.findOne({ email }, "+password");
+    const isMatch = account
+      ? await bcrypt.compare(password, account.password)
       : false;
 
-    if (!user || !isMatch) {
+    if (!account || !isMatch) {
       return res.status(401).json({
         message: "Invalid email or password"
       });
@@ -265,11 +244,11 @@ app.post("/api/v1/login", authLimiter, async (req, res) => {
 
     const token = jwt.sign(
       {
-        id: user._id,
-        email: user.email
+        id: account._id,
+        email: account.email
       },
-      jwtSecret,
-      { expiresIn: tokenExpiry }
+      jwtSecret(),
+      { expiresIn: tokenExpiry() }
     );
 
     res.status(200).json({
@@ -282,8 +261,4 @@ app.post("/api/v1/login", authLimiter, async (req, res) => {
   }
 });
 
-// ================= SERVER =================
-
-app.listen(port, () => {
-  console.log("server is running on port", port);
-});
+export default app;

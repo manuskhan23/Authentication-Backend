@@ -40,12 +40,12 @@ const Signup = () => {
     };
 
     try {
-      const res = await axios.post(
+      await axios.post(
         `${Base_URL}api/v1/signup`,
         signupUser
       );
 
-      setSuccess(res.data?.message || "Signup successful 🎉");
+      setSuccess("Signup successful 🎉");
 
       // optional: clear form
       setFormData({
