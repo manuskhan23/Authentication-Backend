@@ -1,8 +1,9 @@
 import { useState } from "react";
-import api from "../Utils/api";
+import axios from "axios";
+import Base_URL from "../Utils";
 
 // Shared form state + submit flow for the auth pages (login / signup).
-const useAuthForm = ({ initialValues, endpoint, successMessage, errorMessage }) => {
+const useAuthForm = ({ initialValues, path, successMessage, errorMessage }) => {
   const [formData, setFormData] = useState(initialValues);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +21,7 @@ const useAuthForm = ({ initialValues, endpoint, successMessage, errorMessage }) 
     setSuccess("");
 
     try {
-      await api.post(endpoint, formData);
+      await axios.post(`${Base_URL}${path}`, formData);
       setSuccess(successMessage);
       setFormData(initialValues);
     } catch (err) {

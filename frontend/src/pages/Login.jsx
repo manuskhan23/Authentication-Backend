@@ -11,7 +11,7 @@ const Login = () => {
       email: "",
       password: "",
     },
-    endpoint: "api/v1/login",
+    path: "api/v1/login",
     successMessage: "Login successful 🎉",
     errorMessage: "Login failed",
   });

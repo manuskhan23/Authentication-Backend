@@ -1,9 +1,7 @@
 import express from "express";
-import mongoose from "mongoose";
 import postModel from "./models/postModel.js";
 import signupModel from "./models/userModel.js";
 import bcrypt from "bcrypt";
-import 'dotenv/config';
 import jwt from "jsonwebtoken";
 import cors from "cors";
 import asyncHandler from "./utils/asyncHandler.js";
@@ -12,9 +10,6 @@ import validateRequiredFields from "./utils/validateRequiredFields.js";
 import errorHandler from "./middleware/errorHandler.js";
 
 const app = express();
-const port = 5000;
-
-const uri = process.env.MONGO_URI;
 
 app.use(cors({
   origin: "http://localhost:5173",
@@ -23,17 +18,6 @@ app.use(cors({
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
-
-// DB connection
-mongoose.connect(uri);
-
-mongoose.connection.on("connected", () => {
-  console.log("mongodb connected successfully...");
-});
-
-mongoose.connection.on("error", (err) => {
-  console.log("Mongo Error:", err);
-});
 
 // ================= ROUTES =================
 
@@ -106,7 +90,7 @@ app.post("/api/v1/signup", asyncHandler(async (req, res) => {
 app.post("/api/v1/login", asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  validateRequiredFields(req.body, ["email", "password"]);
+  validateRequiredFields(req.body, ["email", "password"], "Required fields are missing");
 
   const user = await signupModel.findOne({ email });
 
@@ -136,8 +120,4 @@ app.post("/api/v1/login", asyncHandler(async (req, res) => {
 
 app.use(errorHandler);
 
-// ================= SERVER =================
-
-app.listen(port, () => {
-  console.log("server is running on port", port);
-});
+export default app;

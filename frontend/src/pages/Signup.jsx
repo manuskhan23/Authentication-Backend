@@ -13,7 +13,7 @@ const Signup = () => {
       email: "",
       password: "",
     },
-    endpoint: "api/v1/signup",
+    path: "api/v1/signup",
     successMessage: "Signup successful 🎉",
     errorMessage: "Signup failed",
   });
