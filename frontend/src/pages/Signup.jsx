@@ -45,8 +45,7 @@ const Signup = () => {
         signupUser
       );
 
-      console.log("Response:", res.data);
-      setSuccess("Signup successful 🎉");
+      setSuccess(res.data?.message || "Signup successful 🎉");
 
       // optional: clear form
       setFormData({
@@ -57,7 +56,6 @@ const Signup = () => {
       });
 
     } catch (err) {
-      console.log(err.response?.data || err.message);
       setError(err.response?.data?.message || "Signup failed");
     } finally {
       setLoading(false);
