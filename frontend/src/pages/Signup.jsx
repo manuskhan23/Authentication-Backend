@@ -58,7 +58,7 @@ const Signup = () => {
 
     } catch (err) {
       console.error("Signup failed:", err);
-      setError(err.response?.data?.message || err.message || "Signup failed");
+      setError(err.response?.data?.message || "Signup failed");
     } finally {
       setLoading(false);
     }

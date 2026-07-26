@@ -49,7 +49,7 @@ const Login = () => {
 
     } catch (err) {
       console.error("Login failed:", err);
-      setError(err.response?.data?.message || err.message || "Login failed");
+      setError(err.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
