@@ -1,10 +1,16 @@
 import { describe, it, expect } from "vitest";
+import mongoose from "mongoose";
 import signupModel from "../models/userModel.js";
 import postModel from "../models/postModel.js";
 
 describe("signupModel", () => {
   it("is registered under the Signup model name", () => {
     expect(signupModel.modelName).toBe("Signup");
+  });
+
+  it("hides the password by default", () => {
+    expect(signupModel.schema.path("password").options.select).toBe(false);
+    expect(signupModel.schema.path("email").options.unique).toBe(true);
   });
 
   it("keeps the user fields as strings", () => {
@@ -39,10 +45,20 @@ describe("postModel", () => {
   });
 
   it("validates a post document", () => {
-    const post = new postModel({ post_title: "title 01", post_desc: "desc" });
+    const post = new postModel({
+      post_title: "title 01",
+      post_desc: "desc",
+      author: new mongoose.Types.ObjectId(),
+    });
 
     expect(post.validateSync()).toBeUndefined();
     expect(post.post_title).toBe("title 01");
     expect(post.post_desc).toBe("desc");
+  });
+
+  it("requires an author", () => {
+    const post = new postModel({ post_title: "title 01" });
+
+    expect(post.validateSync()?.errors.author).toBeDefined();
   });
 });

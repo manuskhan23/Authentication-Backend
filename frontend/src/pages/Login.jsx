@@ -33,12 +33,11 @@ const Login = () => {
     };
 
     try {
-      const res = await axios.post(
+      await axios.post(
         `${Base_URL}api/v1/login`,
         loginUser
       );
 
-      console.log("Response:", res.data);
       setSuccess("Login successful 🎉");
 
       // optional: clear form
@@ -48,7 +47,6 @@ const Login = () => {
       });
 
     } catch (err) {
-      console.log(err.response?.data || err.message);
       setError(err.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
@@ -60,7 +58,15 @@ const Login = () => {
       <form onSubmit={handleSubmit}>
         <Input label="Email" type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Enter email" />
         <Input label="Password" type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Enter password" />
-        <Button text="Login" />
+        {error && (
+          <p className="text-red-500 text-center mt-2">{error}</p>
+        )}
+
+        {success && (
+          <p className="text-green-500 text-center mt-2">{success}</p>
+        )}
+
+        <Button text={loading ? "Logging in..." : "Login"} disabled={loading} />
       </form>
       <p className="text-center mt-3">
         Don't have an account? <Link to="/signup">Sign Up</Link>

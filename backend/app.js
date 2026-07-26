@@ -1,79 +1,170 @@
 import express from "express";
+import mongoose from "mongoose";
 import postModel from "./models/postModel.js";
 import signupModel from "./models/userModel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 const app = express();
 
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: allowedOrigins,
   credentials: true
 }));
 
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: "100kb" }));
+app.use(express.json({ limit: "100kb" }));
+
+// ================= HELPERS =================
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+
+const jwtSecret = () => process.env.JWT_SECRET;
+const tokenExpiry = () => process.env.JWT_EXPIRES_IN || "1h";
+
+// Rejects non-string payloads such as { "$ne": null }, which would otherwise
+// reach Mongo as query operators.
+const asString = (value) => (typeof value === "string" ? value.trim() : "");
+
+const authLimiter = () => rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.AUTH_RATE_LIMIT) || 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts, please try again later" },
+});
+
+const requireAuth = (req, res, next) => {
+  const header = req.headers.authorization || "";
+  const [scheme, token] = header.split(" ");
+
+  if (scheme !== "Bearer" || !token) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+
+  try {
+    const payload = jwt.verify(token, jwtSecret());
+    req.user = { id: payload.id, email: payload.email };
+    next();
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired token" });
+  }
+};
+
+const handleError = (res, error, context) => {
+  console.error(`${context} failed:`, error);
+  res.status(500).json({ message: "Internal server error" });
+};
 
 // ================= ROUTES =================
 
-// test route
+// health check
 app.get("/", (req, res) => {
-  res.json("hello");
+  res.json({ status: "ok" });
 });
 
 // ---------------- POST APIs ----------------
 
 // create post
-app.post("/api/createpost", async (req, res) => {
+app.post("/api/createpost", requireAuth, async (req, res) => {
   try {
-    const saveData = await postModel.create(req.body);
+    const post_title = asString(req.body?.post_title);
+    const post_desc = asString(req.body?.post_desc);
+
+    if (!post_title) {
+      return res.status(400).json({ message: "post_title is required" });
+    }
+
+    const saveData = await postModel.create({
+      post_title,
+      post_desc,
+      author: req.user.id,
+    });
     res.status(201).json(saveData);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleError(res, error, "createpost");
   }
 });
 
-// get post
-app.get("/api/getpost", async (req, res) => {
+// get posts of the authenticated user
+app.get("/api/getpost", requireAuth, async (req, res) => {
   try {
-    const getData = await postModel.find({ post_title: "title 01" });
+    const getData = await postModel.find({ author: req.user.id });
     res.json(getData);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleError(res, error, "getpost");
   }
 });
 
 // update post
-app.put("/api/updatepost", async (req, res) => {
+app.put("/api/updatepost/:id", requireAuth, async (req, res) => {
   try {
-    await postModel.findByIdAndUpdate(
-      "69e482145220f13556b60d6c",
-      req.body
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid post id" });
+    }
+
+    const update = {};
+    const post_title = asString(req.body?.post_title);
+    const post_desc = asString(req.body?.post_desc);
+
+    if (post_title) update.post_title = post_title;
+    if (post_desc) update.post_desc = post_desc;
+
+    const updated = await postModel.findOneAndUpdate(
+      { _id: req.params.id, author: req.user.id },
+      update,
+      { new: true, runValidators: true }
     );
 
-    res.json("data updated successfully...");
+    if (!updated) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    res.json(updated);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleError(res, error, "updatepost");
   }
 });
 
 // delete post
-app.delete("/api/deletepost/:id", async (req, res) => {
+app.delete("/api/deletepost/:id", requireAuth, async (req, res) => {
   try {
-    await postModel.findByIdAndDelete(req.params.id);
-    res.json("data deleted successfully...");
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid post id" });
+    }
+
+    const deleted = await postModel.findOneAndDelete({
+      _id: req.params.id,
+      author: req.user.id,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Post not found" });
+    }
+
+    res.json({ message: "data deleted successfully..." });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    handleError(res, error, "deletepost");
   }
 });
 
 // ================= AUTH =================
 
 // SIGNUP
-app.post("/api/v1/signup", async (req, res) => {
+app.post("/api/v1/signup", authLimiter(), async (req, res) => {
   try {
-    const { firstName, lastName, email, password } = req.body;
+    const firstName = asString(req.body?.firstName);
+    const lastName = asString(req.body?.lastName);
+    const email = asString(req.body?.email).toLowerCase();
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
 
     if (!firstName || !lastName || !email || !password) {
       return res.status(400).json({
@@ -81,9 +172,17 @@ app.post("/api/v1/signup", async (req, res) => {
       });
     }
 
-    console.log("Checking email:", email);
+    if (!EMAIL_PATTERN.test(email)) {
+      return res.status(400).json({ message: "Invalid email address" });
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({
+        message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
+      });
+    }
+
     const emailExist = await signupModel.findOne({ email });
-    console.log("Email found:", emailExist);
 
     if (emailExist) {
       return res.status(409).json({
@@ -93,32 +192,37 @@ app.post("/api/v1/signup", async (req, res) => {
 
     const encryptPassword = await bcrypt.hash(password, 10);
 
-    const userObj = {
+    const user = await signupModel.create({
       firstName,
       lastName,
       email,
       password: encryptPassword
-    };
-
-    const saveData = await signupModel.create(userObj);
+    });
 
     res.status(201).json({
       message: "User created successfully",
       status: true,
-      saveData
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
+      }
     });
 
   } catch (error) {
-    res.status(500).json({
-      message: error.message
-    });
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: "Email already exists.." });
+    }
+    handleError(res, error, "signup");
   }
 });
 
 // LOGIN
-app.post("/api/v1/login", async (req, res) => {
+app.post("/api/v1/login", authLimiter(), async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = asString(req.body?.email).toLowerCase();
+    const password = typeof req.body?.password === "string" ? req.body.password : "";
 
     if (!email || !password) {
       return res.status(400).json({
@@ -126,29 +230,25 @@ app.post("/api/v1/login", async (req, res) => {
       });
     }
 
-    const user = await signupModel.findOne({ email });
+    // "+password" re-includes the field, which the schema hides by default.
+    const account = await signupModel.findOne({ email }, "+password");
+    const isMatch = account
+      ? await bcrypt.compare(password, account.password)
+      : false;
 
-    if (!user) {
-      return res.status(404).json({
-        message: "Invalid email or password"
-      });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
+    if (!account || !isMatch) {
       return res.status(401).json({
         message: "Invalid email or password"
       });
     }
 
-    // ✅ FIXED: no password in token
     const token = jwt.sign(
       {
-        id: user._id,
-        email: user.email
+        id: account._id,
+        email: account.email
       },
-      process.env.JWT_SECRET_KEY,
+      jwtSecret(),
+      { expiresIn: tokenExpiry() }
     );
 
     res.status(200).json({
@@ -157,9 +257,7 @@ app.post("/api/v1/login", async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({
-      message: error.message
-    });
+    handleError(res, error, "login");
   }
 });
 

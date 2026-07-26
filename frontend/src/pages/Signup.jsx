@@ -40,12 +40,11 @@ const Signup = () => {
     };
 
     try {
-      const res = await axios.post(
+      await axios.post(
         `${Base_URL}api/v1/signup`,
         signupUser
       );
 
-      console.log("Response:", res.data);
       setSuccess("Signup successful 🎉");
 
       // optional: clear form
@@ -57,7 +56,6 @@ const Signup = () => {
       });
 
     } catch (err) {
-      console.log(err.response?.data || err.message);
       setError(err.response?.data?.message || "Signup failed");
     } finally {
       setLoading(false);

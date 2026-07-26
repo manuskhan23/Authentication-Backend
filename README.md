@@ -60,11 +60,17 @@ npm install
 
 4. Set up environment variables:
 ```bash
-# In backend directory, create .env
+# In backend directory, copy the example file and fill in the values
+cp .env.example .env
+
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
+JWT_EXPIRES_IN=1h
 PORT=5000
+CORS_ORIGINS=http://localhost:5173
 ```
+
+The backend refuses to start unless `MONGO_URI` and `JWT_SECRET` are set.
 
 ### Running the Application
 
