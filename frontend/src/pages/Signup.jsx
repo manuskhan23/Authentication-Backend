@@ -1,68 +1,22 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import Input from "../components/Input";
 import Button from "../components/Button";
 import FormCard from "../components/FormCard";
-import axios from "axios";
-import Base_URL from "../Utils";
+import Alert from "../components/Alert";
+import useAuthForm from "../hooks/useAuthForm";
 
 const Signup = () => {
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
+  const { formData, loading, error, success, handleChange, handleSubmit } = useAuthForm({
+    initialValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+    },
+    endpoint: "api/v1/signup",
+    successMessage: "Signup successful 🎉",
+    errorMessage: "Signup failed",
   });
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    setLoading(true);
-    setError("");
-    setSuccess("");
-
-    const signupUser = {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      password: formData.password,
-    };
-
-    try {
-      const res = await axios.post(
-        `${Base_URL}api/v1/signup`,
-        signupUser
-      );
-
-      console.log("Response:", res.data);
-      setSuccess("Signup successful 🎉");
-
-      // optional: clear form
-      setFormData({
-        firstName: "",
-        lastName: "",
-        email: "",
-        password: "",
-      });
-
-    } catch (err) {
-      console.log(err.response?.data || err.message);
-      setError(err.response?.data?.message || "Signup failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <FormCard title="Sign Up">
@@ -102,13 +56,7 @@ const Signup = () => {
           placeholder="Enter password"
         />
 
-        {error && (
-          <p className="text-red-500 text-center mt-2">{error}</p>
-        )}
-
-        {success && (
-          <p className="text-green-500 text-center mt-2">{success}</p>
-        )}
+        <Alert error={error} success={success} />
 
         <Button
           text={loading ? "Signing up..." : "Sign Up"}
