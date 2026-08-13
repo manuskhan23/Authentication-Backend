@@ -33,6 +33,7 @@ const validSignup = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("POST /api/v1/signup", () => {
@@ -90,14 +91,33 @@ describe("POST /api/v1/signup", () => {
     expect(signupModel.create).not.toHaveBeenCalled();
   });
 
-  it("returns 500 when persisting the user fails", async () => {
+  it("returns a generic 500 when persisting the user fails", async () => {
     signupModel.findOne.mockResolvedValue(null);
     signupModel.create.mockRejectedValue(new Error("db write failed"));
 
     const res = await request(app).post("/api/v1/signup").send(validSignup);
 
     expect(res.status).toBe(500);
-    expect(res.body.message).toBe("db write failed");
+    expect(res.body.message).toBe("Internal server error");
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it("never returns the stored password hash", async () => {
+    signupModel.findOne.mockResolvedValue(null);
+    signupModel.create.mockImplementation(async (userObj) => ({
+      _id: "user-1",
+      ...userObj,
+    }));
+
+    const res = await request(app).post("/api/v1/signup").send(validSignup);
+
+    expect(JSON.stringify(res.body)).not.toContain("$2b$");
+    expect(res.body.user).toEqual({
+      id: "user-1",
+      firstName: validSignup.firstName,
+      lastName: validSignup.lastName,
+      email: validSignup.email,
+    });
   });
 });
 
@@ -134,14 +154,14 @@ describe("POST /api/v1/login", () => {
     expect(signupModel.findOne).not.toHaveBeenCalled();
   });
 
-  it("returns 404 for an unknown email", async () => {
+  it("returns 401 for an unknown email so it cannot be used to probe accounts", async () => {
     signupModel.findOne.mockResolvedValue(null);
 
     const res = await request(app)
       .post("/api/v1/login")
       .send({ email: "nobody@example.com", password: validSignup.password });
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(401);
     expect(res.body.message).toBe("Invalid email or password");
     expect(res.body.token).toBeUndefined();
   });
@@ -158,7 +178,7 @@ describe("POST /api/v1/login", () => {
     expect(res.body.token).toBeUndefined();
   });
 
-  it("returns 500 when the lookup fails", async () => {
+  it("returns a generic 500 when the lookup fails", async () => {
     signupModel.findOne.mockRejectedValue(new Error("db read failed"));
 
     const res = await request(app)
@@ -166,6 +186,26 @@ describe("POST /api/v1/login", () => {
       .send({ email: validSignup.email, password: validSignup.password });
 
     expect(res.status).toBe(500);
-    expect(res.body.message).toBe("db read failed");
+    expect(res.body.message).toBe("Internal server error");
+    expect(console.error).toHaveBeenCalled();
+  });
+});
+
+describe("request level error handling", () => {
+  it("returns 400 for a malformed JSON body", async () => {
+    const res = await request(app)
+      .post("/api/v1/login")
+      .set("Content-Type", "application/json")
+      .send("{not-json");
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe("Invalid JSON body");
+  });
+
+  it("returns a JSON 404 for an unknown route", async () => {
+    const res = await request(app).get("/api/does-not-exist");
+
+    expect(res.status).toBe(404);
+    expect(res.body.message).toBe("Route not found");
   });
 });

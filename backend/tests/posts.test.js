@@ -22,6 +22,7 @@ const app = (await import("../app.js")).default;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
 describe("GET /", () => {
@@ -57,13 +58,14 @@ describe("POST /api/createpost", () => {
     expect(postModel.create).toHaveBeenCalledWith({ post_title: "title 01" });
   });
 
-  it("returns 500 when the write fails", async () => {
+  it("returns a generic 500 when the write fails", async () => {
     postModel.create.mockRejectedValue(new Error("create failed"));
 
     const res = await request(app).post("/api/createpost").send({});
 
     expect(res.status).toBe(500);
-    expect(res.body.message).toBe("create failed");
+    expect(res.body.message).toBe("Internal server error");
+    expect(console.error).toHaveBeenCalled();
   });
 });
 
@@ -79,39 +81,54 @@ describe("GET /api/getpost", () => {
     expect(postModel.find).toHaveBeenCalledWith({ post_title: "title 01" });
   });
 
-  it("returns 500 when the read fails", async () => {
+  it("returns a generic 500 when the read fails", async () => {
     postModel.find.mockRejectedValue(new Error("find failed"));
 
     const res = await request(app).get("/api/getpost");
 
     expect(res.status).toBe(500);
-    expect(res.body.message).toBe("find failed");
+    expect(res.body.message).toBe("Internal server error");
+    expect(console.error).toHaveBeenCalled();
   });
 });
 
-describe("PUT /api/updatepost", () => {
-  it("updates the post and confirms", async () => {
-    postModel.findByIdAndUpdate.mockResolvedValue({});
+describe("PUT /api/updatepost/:id", () => {
+  it("updates the post referenced by the route param and returns it", async () => {
+    const updated = { _id: "post-1", post_title: "updated" };
+    postModel.findByIdAndUpdate.mockResolvedValue(updated);
 
     const res = await request(app)
-      .put("/api/updatepost")
+      .put("/api/updatepost/post-1")
       .send({ post_title: "updated" });
 
     expect(res.status).toBe(200);
-    expect(res.body).toBe("data updated successfully...");
+    expect(res.body).toEqual(updated);
     expect(postModel.findByIdAndUpdate).toHaveBeenCalledWith(
-      "69e482145220f13556b60d6c",
+      "post-1",
       { post_title: "updated" },
+      { returnDocument: "after", runValidators: true },
     );
   });
 
-  it("returns 500 when the update fails", async () => {
+  it("returns 404 when no post matches the id", async () => {
+    postModel.findByIdAndUpdate.mockResolvedValue(null);
+
+    const res = await request(app)
+      .put("/api/updatepost/post-1")
+      .send({ post_title: "updated" });
+
+    expect(res.status).toBe(404);
+    expect(res.body.message).toBe("Post not found");
+  });
+
+  it("returns a generic 500 when the update fails", async () => {
     postModel.findByIdAndUpdate.mockRejectedValue(new Error("update failed"));
 
-    const res = await request(app).put("/api/updatepost").send({});
+    const res = await request(app).put("/api/updatepost/post-1").send({});
 
     expect(res.status).toBe(500);
-    expect(res.body.message).toBe("update failed");
+    expect(res.body.message).toBe("Internal server error");
+    expect(console.error).toHaveBeenCalled();
   });
 });
 
@@ -126,13 +143,23 @@ describe("DELETE /api/deletepost/:id", () => {
     expect(postModel.findByIdAndDelete).toHaveBeenCalledWith("post-1");
   });
 
-  it("returns 500 when the delete fails", async () => {
+  it("returns 404 when no post matches the id", async () => {
+    postModel.findByIdAndDelete.mockResolvedValue(null);
+
+    const res = await request(app).delete("/api/deletepost/post-1");
+
+    expect(res.status).toBe(404);
+    expect(res.body.message).toBe("Post not found");
+  });
+
+  it("returns a generic 500 when the delete fails", async () => {
     postModel.findByIdAndDelete.mockRejectedValue(new Error("delete failed"));
 
     const res = await request(app).delete("/api/deletepost/post-1");
 
     expect(res.status).toBe(500);
-    expect(res.body.message).toBe("delete failed");
+    expect(res.body.message).toBe("Internal server error");
+    expect(console.error).toHaveBeenCalled();
   });
 });
 
